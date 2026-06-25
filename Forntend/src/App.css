@@ -543,7 +543,8 @@ input {
   margin: 10px 0 14px;
 }
 
-.product-body button {
+.product-body button,
+.add-to-cart-btn {
   border: none;
   border-radius: 999px;
   background: linear-gradient(135deg, #111827, #4f46e5);
@@ -551,6 +552,12 @@ input {
   padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.add-to-cart-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(79, 70, 229, 0.18);
 }
 
 .offer-grid {

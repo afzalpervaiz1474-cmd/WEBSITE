@@ -38,7 +38,28 @@ const saveUsers = (data) => {
 
 let users = loadUsers()
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }))
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN,
+  'http://localhost:5173',
+  'http://localhost:5174',
+].filter(Boolean)
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    if (allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`))
+  },
+  credentials: true,
+}
+
+app.use(cors(corsOptions))
 app.use(express.json())
 
 const createPasswordHash = (password, salt) => crypto.scryptSync(password, salt, 64).toString('hex')

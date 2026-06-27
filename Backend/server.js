@@ -18,8 +18,14 @@ dotenv.config({ path: envFile })
 const app = express()
 const port = process.env.PORT || 5000
 const usersFilePath = path.join(__dirname, 'data', 'users.json')
-const frontEndDist = path.join(__dirname, '../Forntend/dist')
+const frontEndDistCandidates = [
+  path.join(__dirname, '../Forntend/dist'),
+  path.join(__dirname, '../dist'),
+  path.join(__dirname, '../../Forntend/dist'),
+]
+const frontEndDist = frontEndDistCandidates.find((candidate) => fs.existsSync(candidate)) || frontEndDistCandidates[0]
 const mongoUri = process.env.MONGO_URI || ''
+const mongoDbName = process.env.MONGO_DB_NAME || undefined
 const mongoClient = mongoUri ? new MongoClient(mongoUri) : null
 let usersCollection = null
 let mongoConnected = false
@@ -54,7 +60,7 @@ const connectMongo = async () => {
   }
 
   await mongoClient.connect()
-  const db = mongoClient.db()
+  const db = mongoClient.db(mongoDbName)
   usersCollection = db.collection('users')
   await usersCollection.createIndex({ email: 1 }, { unique: true })
   mongoConnected = true
@@ -98,31 +104,31 @@ const updateUser = async (user) => {
   return user
 }
 
+const parseOrigins = (value) =>
+  (value || '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+
 const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  ...parseOrigins(process.env.FRONTEND_ORIGIN),
+  'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
-  'https://website-3.onrender.com',
+  'https://afzal-1.onrender.com',
+  'https://afzal-frontend.onrender.com',
+  'https://afzal-market-store.onrender.com',
 ].filter(Boolean)
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin || '*'
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin || '*')
-    res.header('Access-Control-Allow-Credentials', 'true')
-  }
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  )
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204)
-  }
-  next()
-})
-app.use(cors({ origin: allowedOrigins, credentials: true }))
-app.options(/.*/, cors({ origin: allowedOrigins, credentials: true }))
+const corsOptions = {
+  origin(origin, callback) {
+    callback(null, !origin || allowedOrigins.includes(origin.replace(/\/$/, '')))
+  },
+  credentials: true,
+}
+
+app.use(cors(corsOptions))
+app.options(/.*/, cors(corsOptions))
 app.use(express.json())
 
 const createPasswordHash = (password, salt) =>
@@ -145,7 +151,16 @@ const verifyPassword = (password, user) => {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, message: 'Backend is running' })
+  res.json({
+    ok: true,
+    message: 'Backend is running',
+    mongo: {
+      configured: Boolean(mongoUri),
+      connected: mongoConnected,
+      database: mongoDbName || null,
+    },
+    storage: mongoConnected ? 'mongodb' : 'local-json',
+  })
 })
 
 app.post('/api/auth/register', async (req, res) => {
@@ -257,7 +272,12 @@ app.post('/api/auth/logout', (req, res) => {
 app.use(express.static(frontEndDist))
 
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(frontEndDist, 'index.html'))
+  const indexPath = path.join(frontEndDist, 'index.html')
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath)
+  }
+
+  res.status(200).send(`<!doctype html><html><body><h1>Site build not ready</h1><p>The frontend build is missing.</p></body></html>`)
 })
 
 app.listen(port, () => {

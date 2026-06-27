@@ -1,12 +1,35 @@
 services:
   - type: web
-    name: website
-    env: node
-    plan: free
+    name: Afzal-1
+    runtime: node
+    plan: starter
     branch: main
     buildCommand: "npm install && npm run build"
-    startCommand: "npm run start"
+    startCommand: "node server.js"
     rootDir: .
     envVars:
       - key: JWT_SECRET
-        value: supersecret
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: afzal-market-store
+      - key: FRONTEND_ORIGIN
+        value: https://afzal-frontend.onrender.com
+
+  - type: web
+    name: afzal-frontend
+    runtime: static
+    branch: main
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: ./Forntend/dist
+    rootDir: .
+    envVars:
+      - key: VITE_API_URL
+        value: https://afzal-1.onrender.com
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

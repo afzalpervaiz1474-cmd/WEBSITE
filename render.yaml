@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: website
+    env: node
+    plan: free
+    branch: main
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    rootDir: .
+    envVars:
+      - key: JWT_SECRET
+        value: supersecret

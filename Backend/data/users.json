@@ -46,5 +46,13 @@
     "passwordHash": "68be4e8833d29de9b1107ad5ae39039c850db6f8eb1cf4dc50f85a987031e45321a9b011901fe8e245c2a16daacfd4f0156fe2a354295938f5e989ea18f4b296",
     "salt": "14e22eb42ed5e04c9e8c3bfabcdd4ad5",
     "provider": "local"
+  },
+  {
+    "id": "1782524432035",
+    "email": "m.foji344@gmail.com",
+    "name": "m aslam",
+    "salt": "95868dd1298cc67589040cd1f0d6f991",
+    "passwordHash": "c378cf328c95d86c29134318e7afcbd66e58d228aacccc42385f834b52101ac18fb6e6310d96bb86bfc9bd266e75116ca2e2092e8ba23d9eef56c3be00dd0d3c",
+    "provider": "local"
   }
 ]

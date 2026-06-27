@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "cd Forntend && vite",
     "build": "cd Forntend && vite build",
+    "start": "npm run build && node Backend/server.js",
     "preview": "cd Forntend && vite preview"
   },
   "dependencies": {

@@ -22,18 +22,3 @@ export function loadGoogleScript() {
     document.head.appendChild(script)
   })
 }
-
-export function initializeGoogleAuth(onCredentialResponse) {
-  if (!window.google?.accounts?.id) return
-
-  window.google.accounts.id.initialize({
-    client_id: 'your_google_client_id_here',
-    callback: onCredentialResponse,
-  })
-
-  window.google.accounts.id.renderButton(document.getElementById('google-login-button'), {
-    theme: 'outline',
-    size: 'large',
-    width: 280,
-  })
-}

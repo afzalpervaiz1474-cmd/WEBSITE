@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { MongoClient } from 'mongodb'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -18,6 +19,10 @@ const app = express()
 const port = process.env.PORT || 5000
 const usersFilePath = path.join(__dirname, 'data', 'users.json')
 const frontEndDist = path.join(__dirname, '../Forntend/dist')
+const mongoUri = process.env.MONGO_URI || ''
+const mongoClient = mongoUri ? new MongoClient(mongoUri) : null
+let usersCollection = null
+let mongoConnected = false
 
 const ensureUsersFile = () => {
   if (!fs.existsSync(usersFilePath)) {
@@ -42,8 +47,59 @@ const saveUsers = (data) => {
 
 let users = loadUsers()
 
+const connectMongo = async () => {
+  if (!mongoClient) {
+    console.warn('No MONGO_URI provided, using local JSON storage')
+    return
+  }
+
+  await mongoClient.connect()
+  const db = mongoClient.db()
+  usersCollection = db.collection('users')
+  await usersCollection.createIndex({ email: 1 }, { unique: true })
+  mongoConnected = true
+  console.log('Connected to MongoDB')
+}
+
+connectMongo().catch((error) => {
+  console.error('MongoDB connection failed:', error.message || error)
+})
+
+const findUserByEmail = async (email) => {
+  if (mongoConnected && usersCollection) {
+    return usersCollection.findOne({ email })
+  }
+  return users.find((u) => u.email === email)
+}
+
+const insertUser = async (user) => {
+  if (mongoConnected && usersCollection) {
+    await usersCollection.insertOne(user)
+    return user
+  }
+  users.push(user)
+  saveUsers(users)
+  return user
+}
+
+const updateUser = async (user) => {
+  if (mongoConnected && usersCollection) {
+    await usersCollection.updateOne({ email: user.email }, { $set: user }, { upsert: true })
+    return user
+  }
+
+  const index = users.findIndex((u) => u.email === user.email)
+  if (index >= 0) {
+    users[index] = user
+  } else {
+    users.push(user)
+  }
+  saveUsers(users)
+  return user
+}
+
 const allowedOrigins = [
-  'http://localhost:5173',
+  process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
   'https://website-3.onrender.com',
@@ -92,7 +148,7 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'Backend is running' })
 })
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { email, password, name } = req.body
 
   if (!email || !password) {
@@ -100,7 +156,7 @@ app.post('/api/auth/register', (req, res) => {
   }
 
   const normalizedEmail = email.toLowerCase().trim()
-  if (users.find((u) => u.email === normalizedEmail)) {
+  if (await findUserByEmail(normalizedEmail)) {
     return res.status(409).json({ message: 'User already exists' })
   }
 
@@ -114,8 +170,7 @@ app.post('/api/auth/register', (req, res) => {
     provider: 'local',
   }
 
-  users.push(newUser)
-  saveUsers(users)
+  await insertUser(newUser)
 
   const token = createToken(newUser)
 
@@ -125,10 +180,10 @@ app.post('/api/auth/register', (req, res) => {
   })
 })
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body
   const normalizedEmail = email?.toLowerCase().trim()
-  const user = users.find((u) => u.email === normalizedEmail)
+  const user = await findUserByEmail(normalizedEmail)
 
   if (!user) {
     return res.status(401).json({ message: 'User not found' })
@@ -170,7 +225,7 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const normalizedEmail = googlePayload.email.toLowerCase()
-    let user = users.find((u) => u.email === normalizedEmail)
+    let user = await findUserByEmail(normalizedEmail)
 
     if (!user) {
       user = {
@@ -182,11 +237,10 @@ app.post('/api/auth/google', async (req, res) => {
         salt: '',
         passwordHash: '',
       }
-      users.push(user)
-      saveUsers(users)
+      await insertUser(user)
     } else {
       user.photo = googlePayload.picture || user.photo || ''
-      saveUsers(users)
+      await updateUser(user)
     }
 
     const token = createToken(user)
